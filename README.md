@@ -6,3 +6,9 @@ Execute  "./just_do_it" to start interpreter or "./just_debug_it code" to debug(
 For program recording on a disc, use the following command:
 
 nasm -f bin minibrainfuck.asm -o minibrainfuck && dd if=minibrainfuck of=disk.img bs=510 count=1 conv=sync && cat 55haah >> disk.img && sudo dd if=disk.img of=/dev/you_flash_drive(for me it sdb)
+
+To run the programs from a file, use the following command:
+./just_debug_it `cat path_to_bf_program`
+
+For example:
+./just_debug_it `cat programs/helloworld`
