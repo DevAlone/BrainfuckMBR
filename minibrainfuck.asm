@@ -96,8 +96,8 @@ start:
             jnz .lp
             ;loop .lp
         .endlp:
-        
-;        mov [edi], byte 0; пишем конец строки
+        inc di
+        mov [di], byte 0; пишем конец строки
         mov ax, bf_code_size; сколько должны были записать
         sub ax, cx; сколько записали
         cmp ax, 0
@@ -122,13 +122,15 @@ start:
         call setCursor
         add sp, 2
         
-        mov cx, ax; количество команд.
+        ;mov cx, ax; количество команд.
         
         lea di, [bf_mem_offset+bf_data_pos]; массив 
         xor bx, bx; указатель на ячейку массива
         lea si, [bf_mem_offset +bf_code_pos] ; откуда берём команды
         .interpreter:
             mov al, byte [si]; загружаем символ
+            cmp al, 0; 
+            je .end_interpreter
             
             cmp al, 43; +
             je .C0
@@ -181,13 +183,6 @@ start:
                 ;dl - колонка
                 ; положили в стек старые значения
                 push word dx
-                ;mov al, dh
-                ;push word ax
-                ;mov al, dl
-                ;push word ax
-                
-                ;push word 24
-                ;push word 0
                 ; перемещаем курсор в нижнюю строку экрана
                 push word 0x1800; 24 строка 0 столбец
                 call setCursor
@@ -217,56 +212,31 @@ start:
                 popa
                 jmp .sw_end
             .C6:; [
-                push cx
-                push ax
+                cmp [di+bx], byte 0; 
+                jnz .sw_end; если в текущей ячейке массива не ноль, выполняем то, что в теле цикла
+                ; переходим на следующую ] с учётом вложенности
+                push word 1; в прямом направлении
+                call loops_handler
+                add sp, 2
+                dec si; на одну назад
                 
-                cmp [di+bx], byte 0
-                jnz .c6_end; если в текущей ячейке не 0, ничего не делаем
-                
-                mov cx, 1; счётчик скобок
-                ;++--[..]
-                .br1lp:
-    pusha
-    mov al, [si]
-    mov ah, 0x0E; номер функции BIOS
-    mov bh, VIDEO_PAGE; страница видеопамяти
-    int 0x10; выводим символ
-    popa
-                    inc si
-                    mov al, [si]; загружаем символ кода
-                    cmp al, '['
-                    jz .inc_br
-                    
-                    
-                    .inc_br:
-                        inc cx; если [ увеличиваем счётчик
-                        jmp .next
-                    
-                    cmp al, ']'
-                    jnz .next
-                    ;.dec_br:
-                        dec cx; если ] уменьшаем
-                        
-                    .next:
-                    cmp cx, 0
-                    jnz .br1lp
-                inc bx; переходим на следующую ячейку
-                .c6_end:
-                pop ax
-                pop cx
-                jmp .sw_end
+	        jmp .sw_end
             .C7:; ]
+                push word -1; в обратном направлении
+                call loops_handler
+                add sp, 2
                 
                 jmp .sw_end
             .def:
                 ;jmp .error
             .sw_end:
-            
+                      
             
             inc si
-            dec cx
-            test cx, cx
-            jnz .interpreter
+            jmp .interpreter
+            .end_interpreter:
+            
+            
             ;loop .interpreter
             
             ; возвращаем сегменты в прежнее состояние
@@ -293,6 +263,34 @@ start:
                 ;jmp .main
             
         ; end
+        
+        
+; переходит на соответствующую скобку с учётом вложенности
+; т.е. если в [si] находится '[', переходит на ']' и наоборот
+; направление задаётся первым аргументом переданным через стек (1 или -1)
+; меняет si
+loops_handler:
+    push bp
+    mov bp, sp
+    push cx
+    xor cx, cx
+    .lp_br1:
+        cmp [si], byte '['
+        jnz .else_if1
+        inc cx
+        .else_if1: 
+        cmp [si], byte ']'
+        jnz .end_if1
+        dec cx
+        .end_if1:
+        add si, [bp+4]
+                            
+        cmp cx, 0
+        jnz .lp_br1
+    pop cx
+    mov sp, bp
+    pop bp
+    ret
 print:
     push bp
     mov bp, sp
@@ -358,9 +356,10 @@ setCursor:
     mov esp, ebp
     pop ebp
     ret
+; просто функция для отладки
 debug:
     pusha
-    mov al, '&'
+    mov al, [si]
     mov ah, 0x0E; номер функции BIOS
     mov bh, VIDEO_PAGE; страница видеопамяти
     int 0x10; выводим символ
@@ -370,7 +369,7 @@ debug:
     
 section .data
     start_message db 'type your govnocode here and press enter: ', 0
-    finish_message db 'your program finished, press any key to continue', 0
+    finish_message db 'press any key to continue', 0
     input_message db '> ', 0
 
    
