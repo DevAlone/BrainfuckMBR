@@ -270,8 +270,9 @@ start:
 ; направление задаётся первым аргументом переданным через стек (1 или -1)
 ; меняет si
 loops_handler:
-    push bp
-    mov bp, sp
+    ;push bp
+    ;mov bp, sp
+    enter 0, 0
     push cx
     xor cx, cx
     .lp_br1:
@@ -288,12 +289,12 @@ loops_handler:
         cmp cx, 0
         jnz .lp_br1
     pop cx
-    mov sp, bp
-    pop bp
+    leave
+    ;mov sp, bp
+    ;pop bp
     ret
 print:
-    push bp
-    mov bp, sp
+    enter 0, 0
     pusha
     push es; запоминаем сегмент
     mov ax, 0; меняем на нулевой, где хранятся все сообщения
@@ -318,8 +319,7 @@ print:
     ;mov es, ax
     
     popa
-    mov sp, bp
-    pop bp
+    leave
     ret
 clearScreen:
     pusha
@@ -327,19 +327,19 @@ clearScreen:
     ;mov al, 0; очистить окно
     mov ax, 0x0600; 
     ; левый верхний угол
-    mov cx, 0
+    ;mov cx, 0
+    xor cx, cx
     ; правый нижний угол
     ;mov dh, 25
     ;mov dl, 80
     mov dx, 0x2580    
-    mov bh, 00000010b
+    mov bh, 00000010b; цвет
     int 0x10
     popa
     ret
 ; void setCursor(dword xy)
 setCursor:
-    push ebp
-    mov ebp, esp
+    enter 0, 0
     
     pusha
     
@@ -347,14 +347,13 @@ setCursor:
         mov ah, 0x02
         mov bh, VIDEO_PAGE; страница видеопамяти
         mov dx, [ebp+2+4]; первый аргумент
-        ;mov dh, [ebp+2+6]; line
-        ;mov dl, [ebp+2+4]; collumn
+        ;dh line
+        ;dl collumn
         int 0x10
         
     popa
     
-    mov esp, ebp
-    pop ebp
+    leave
     ret
 ; просто функция для отладки
 debug:
