@@ -11,4 +11,4 @@ To run the programs from a file, use the following command:
 ./just_debug_it \`cat path_to_bf_program\`
 
 For example:
-./just_debug_it `cat programs/helloworld`
+./just_debug_it \`cat programs/helloworld\`
