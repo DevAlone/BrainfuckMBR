@@ -4,9 +4,9 @@ org 0x7C00; смещение, по которому будет лежать пр
 bf_mem_seg equ 0x100
 bf_mem_offset equ 0x0
 bf_code_pos equ 0
-bf_code_size equ 100
+bf_code_size equ 10000
 bf_data_pos equ bf_code_size 
-bf_data_size equ 100
+bf_data_size equ 10000
 
 VIDEO_PAGE equ 0
 
@@ -14,6 +14,13 @@ section .text
 start:
     mov ax, cs
     mov ds, ax
+    
+    %ifdef DEBUG
+        mov ah, 0
+        mov dx, 0
+        mov al, 11100011b
+        int 0x14
+    %endif
 
 ;    mov ah, 0x00; установить видео режим
 ;    mov al, 0x03; собственно видео режим 
@@ -25,20 +32,21 @@ start:
     ;mov al, 0x00; номер
     mov ax, 0x500 
     int 0x10
-    
+
     .main:
         
         call clearScreen
+
         ;push word 0
         push word 0
         call setCursor
         add sp, 2
-        
+       
         
 ; выводим стартовое сообщение               
         push word start_message
         call print
-        add esp, 2
+        add sp, 2
               
        ; меняем сегменты данных
         mov ax, bf_mem_seg
@@ -48,10 +56,17 @@ start:
 ; вводим программу
         lea di, [bf_mem_offset +bf_code_pos]; куда пишем
         mov cx, bf_code_size; сколько пишем
-        
+
         .lp:
-            mov ah, 0x00; читаем символ
-            int 0x16
+            %ifdef DEBUG
+                mov ah, 0x02
+                mov dx, 0
+                int 0x14
+            %else
+                mov ah, 0x00; читаем символ
+                int 0x16
+            %endif
+            
             
             cmp al, 10; перенос строки
             jz .endlp
@@ -102,8 +117,35 @@ start:
         sub ax, cx; сколько записали
         cmp ax, 0
         je .main; если пользователь ничего не ввёл, возвращаемся
-        
-        
+;; проверяем баланс скобок
+;        ;lea si, [bf_mem_offset +bf_code_pos] ; откуда берём команды
+;        xor cx, cx
+;        .br_balance_lp:
+;            mov al, [si]
+;            cmp al, 0
+;            jz .end_br_lp
+;            
+;            cmp al, '['
+;            jnz .else_if
+;            inc cx
+;            .else_if:
+;            cmp al, ']'
+;            jnz .end_if
+;            dec cx
+;            .end_if:
+;            inc si
+;            cmp cx, 0
+;            jl .br_balance_err
+;            jmp .br_balance_lp
+;         .end_br_lp:
+;         cmp cx, 0
+;         jz .br_balance_ok
+;         
+;            .br_balance_err:
+;            jmp .end_with_error
+;            
+;         .br_balance_ok:
+
 ; создаём массив для хранения данных и зануляем его
         
         lea di, [bf_mem_offset +bf_data_pos]; тут будет храниться массив с которым работает bf
@@ -129,6 +171,7 @@ start:
         lea si, [bf_mem_offset +bf_code_pos] ; откуда берём команды
         .interpreter:
             mov al, byte [si]; загружаем символ
+            clc; сбрасываем флаг переноса, он указывает на факт ошибки
             cmp al, 0; 
             je .end_interpreter
             
@@ -234,12 +277,16 @@ start:
             
             inc si
             jmp .interpreter
+            
+            .end_with_error:
+            mov bx, -1
+            jmp .end_prog
             .end_interpreter:
+            mov bx, 0
             
-            
-            ;loop .interpreter
-            
+            .end_prog:
             ; возвращаем сегменты в прежнее состояние
+            push bx
             mov ax, cs
             mov es, ax; меняем сегмент памяти
             mov ds, ax
@@ -248,6 +295,15 @@ start:
             push word 0x1800; 24 строка 0 столбец
             call setCursor
             add sp, 2
+            
+            pop bx
+            cmp bx, 0
+            jz .no_error
+;            call debug
+            push word error_message
+            call print
+            add sp, 2
+            .no_error:
             
             push finish_message
             call print
@@ -346,7 +402,7 @@ setCursor:
     ; устанавливаем курсор в 0 0
         mov ah, 0x02
         mov bh, VIDEO_PAGE; страница видеопамяти
-        mov dx, [ebp+2+4]; первый аргумент
+        mov dx, [bp+2+2]; первый аргумент
         ;dh line
         ;dl collumn
         int 0x10
@@ -356,20 +412,21 @@ setCursor:
     leave
     ret
 ; просто функция для отладки
-debug:
-    pusha
-    mov al, [si]
-    mov ah, 0x0E; номер функции BIOS
-    mov bh, VIDEO_PAGE; страница видеопамяти
-    int 0x10; выводим символ
-    ;jmp $
-    popa
-    ret
+;debug:
+;    pusha
+;    mov al, '&'
+;    mov ah, 0x0E; номер функции BIOS
+;    mov bh, VIDEO_PAGE; страница видеопамяти
+;    int 0x10; выводим символ
+;    jmp $
+;    popa
+;    ret
     
 section .data
-    start_message db 'type your govnocode here and press enter: ', 0
-    finish_message db 'press any key to continue', 0
-    input_message db '> ', 0
+    start_message db '$ ', 0
+    finish_message db 'press key to continue', 0
+    input_message db '> ', 0    
+    error_message db 'err ', 0
 
    
 ;finish:
