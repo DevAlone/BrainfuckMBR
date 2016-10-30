@@ -22,6 +22,7 @@ For example:
 Для запуска интерпретатора, исполните файл "./just_do_it" или "./just_debug_it bf_code" для отладки(в режиме отладки вы можете посылать bf код через serial порт). Также вы можете записать этот интерпретатор на флешку и запустить прям как настоящую систему windows или linux!
 
 Для записи программы на флешку, воспользуйтесь следующей командой:
+
 nasm -f bin minibrainfuck.asm -o minibrainfuck && dd if=minibrainfuck of=disk.img bs=510 count=1 conv=sync && cat 55haah >> disk.img && sudo dd if=disk.img of=/dev/ваша_флешка(у меня это sdb)
 
 Для запуска программ из файла, воспользуйтесь следующей командой:
