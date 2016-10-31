@@ -16,28 +16,20 @@ start:
     mov ds, ax
     
     %ifdef DEBUG
-        mov ah, 0
         mov dx, 0
-        mov al, 11100011b
+        mov ax, 0000000011100011b
         int 0x14
     %endif
 
-;    mov ah, 0x00; установить видео режим
-;    mov al, 0x03; собственно видео режим 
-    mov ax, 0x03; тоже самое, возможно чуть экономнее
+    mov ax, 0x03; установить видео режим 0x0
     int 0x10; вызываем прерывание
     
-    ; выбрать страницу видеопамяти
-    ;mov ah, 0x05
-    ;mov al, 0x00; номер
-    mov ax, 0x500 
+    mov ax, 0x500; выбрать страницу видеопамяти 0x0
     int 0x10
 
     .main:
-        
         call clearScreen
-
-        ;push word 0
+        
         push word 0
         call setCursor
         add sp, 2
@@ -55,10 +47,11 @@ start:
         
 ; вводим программу
         lea di, [bf_mem_offset +bf_code_pos]; куда пишем
-        mov cx, bf_code_size; сколько пишем
+        xor cx, cx; счётчик записанных символов
 
         .lp:
             %ifdef DEBUG
+                ; читаем из 0 serial port'а
                 mov ah, 0x02
                 mov dx, 0
                 int 0x14
@@ -66,7 +59,6 @@ start:
                 mov ah, 0x00; читаем символ
                 int 0x16
             %endif
-            
             
             cmp al, 10; перенос строки
             jz .endlp
@@ -98,53 +90,45 @@ start:
                 mov ah, 0x0E; номер функции BIOS
                 mov bh, VIDEO_PAGE; страница видеопамяти
                 int 0x10; выводим символ
-            
-            
+                        
             ; в al ascii код символа
             mov [di], byte al
             inc di
             
             
-            dec cx
+            inc cx
             .do_not_print_sym:
-            cmp cx, 0
-            jnz .lp
-            ;loop .lp
+            cmp cx, bf_code_size
+            jng .lp
+            
         .endlp:
-        inc di
-        mov [di], byte 0; пишем конец строки
-        mov ax, bf_code_size; сколько должны были записать
-        sub ax, cx; сколько записали
-        cmp ax, 0
-        je .main; если пользователь ничего не ввёл, возвращаемся
+        mov [di+1], byte 0; пишем конец строки
+        cmp cx, 0
+        ;если пользователь ничего не ввёл, ошибка
+        je .end_with_error
 ;; проверяем баланс скобок
-;        ;lea si, [bf_mem_offset +bf_code_pos] ; откуда берём команды
-;        xor cx, cx
-;        .br_balance_lp:
-;            mov al, [si]
-;            cmp al, 0
-;            jz .end_br_lp
-;            
-;            cmp al, '['
-;            jnz .else_if
-;            inc cx
-;            .else_if:
-;            cmp al, ']'
-;            jnz .end_if
-;            dec cx
-;            .end_if:
-;            inc si
-;            cmp cx, 0
-;            jl .br_balance_err
-;            jmp .br_balance_lp
-;         .end_br_lp:
-;         cmp cx, 0
-;         jz .br_balance_ok
-;         
-;            .br_balance_err:
-;            jmp .end_with_error
-;            
-;         .br_balance_ok:
+
+        lea di, [bf_mem_offset +bf_code_pos]; куда пишем
+        xor cx, cx
+        .br_balance_lp:
+            mov al, [di]
+            cmp al, 0
+            jz .end_br_balance_lp
+            cmp al, '['
+            jnz .else_if
+            inc cx
+            .else_if:
+            cmp al, ']'
+            jnz .end_if
+            dec cx
+            .end_if:
+            inc di
+            cmp cx, 0
+            jl .end_with_error
+            jmp .br_balance_lp
+        .end_br_balance_lp: 
+        cmp cx, 0
+        jnz .end_with_error           
 
 ; создаём массив для хранения данных и зануляем его
         
@@ -159,19 +143,16 @@ start:
 ; интерпретируем
         call clearScreen
        
-        ;push word 0
         push word 0
         call setCursor
         add sp, 2
         
-        ;mov cx, ax; количество команд.
         
         lea di, [bf_mem_offset+bf_data_pos]; массив 
         xor bx, bx; указатель на ячейку массива
         lea si, [bf_mem_offset +bf_code_pos] ; откуда берём команды
         .interpreter:
             mov al, byte [si]; загружаем символ
-            clc; сбрасываем флаг переноса, он указывает на факт ошибки
             cmp al, 0; 
             je .end_interpreter
             
@@ -231,12 +212,9 @@ start:
                 call setCursor
                 add sp, 2
 
-                                
-                ;mov ax, 0
-                ;mov ds, ax
                 push word input_message
                 call print
-                add esp, 2                
+                add sp, 2                
                 
                 mov ah, 0x00; читаем символ
                 int 0x16
@@ -250,7 +228,7 @@ start:
                 int 0x10; 
                 
                 call setCursor; исплользуются те значения, что были занесены в стек
-                add esp, 2
+                add sp, 2
                 .c5_end:
                 popa
                 jmp .sw_end
@@ -258,17 +236,13 @@ start:
                 cmp [di+bx], byte 0; 
                 jnz .sw_end; если в текущей ячейке массива не ноль, выполняем то, что в теле цикла
                 ; переходим на следующую ] с учётом вложенности
-                push word 1; в прямом направлении
+                mov ax, 1; в прямом направлении
                 call loops_handler
-                add sp, 2
-                dec si; на одну назад
-                
+                dec si; на одну назад                
 	        jmp .sw_end
             .C7:; ]
-                push word -1; в обратном направлении
-                call loops_handler
-                add sp, 2
-                
+                mov ax, -1; в обратном направлении
+                call loops_handler                
                 jmp .sw_end
             .def:
                 ;jmp .error
@@ -287,19 +261,17 @@ start:
             .end_prog:
             ; возвращаем сегменты в прежнее состояние
             push bx
-            mov ax, cs
-            mov es, ax; меняем сегмент памяти
-            mov ds, ax
-            
-            ; перемещаем курсор в нижнюю строку экрана
-            push word 0x1800; 24 строка 0 столбец
-            call setCursor
-            add sp, 2
-            
+                mov ax, cs
+                mov es, ax; меняем сегмент памяти
+                mov ds, ax
+                
+                ; перемещаем курсор в нижнюю строку экрана
+                push word 0x1800; 24 строка 0 столбец
+                call setCursor
+                add sp, 2
             pop bx
             cmp bx, 0
             jz .no_error
-;            call debug
             push word error_message
             call print
             add sp, 2
@@ -323,7 +295,7 @@ start:
         
 ; переходит на соответствующую скобку с учётом вложенности
 ; т.е. если в [si] находится '[', переходит на ']' и наоборот
-; направление задаётся первым аргументом переданным через стек (1 или -1)
+; направление задаётся первым аргументом переданным через ax (1 или -1)
 ; меняет si
 loops_handler:
     ;push bp
@@ -340,7 +312,7 @@ loops_handler:
         jnz .end_if1
         dec cx
         .end_if1:
-        add si, [bp+4]
+        add si, ax
                             
         cmp cx, 0
         jnz .lp_br1
@@ -349,12 +321,15 @@ loops_handler:
     ;mov sp, bp
     ;pop bp
     ret
+    
+    
 print:
     enter 0, 0
     pusha
-    push es; запоминаем сегмент
+    push ds; запоминаем сегмент
     mov ax, 0; меняем на нулевой, где хранятся все сообщения
-    mov es, ax
+    ;mov es, ax
+    mov ds, ax
     
     mov si, [bp+2+2]; первый аргумент
     cld
@@ -370,7 +345,7 @@ print:
         jmp .puts_loop
     .exit_loop:
     
-    pop es; восстанавливаем сегмент
+    pop ds; восстанавливаем сегмент
     ;pop ax
     ;mov es, ax
     
@@ -412,19 +387,19 @@ setCursor:
     leave
     ret
 ; просто функция для отладки
-;debug:
-;    pusha
-;    mov al, '&'
-;    mov ah, 0x0E; номер функции BIOS
-;    mov bh, VIDEO_PAGE; страница видеопамяти
-;    int 0x10; выводим символ
-;    jmp $
-;    popa
-;    ret
+debug:
+    pusha
+    mov al, '&'
+    mov ah, 0x0E; номер функции BIOS
+    mov bh, VIDEO_PAGE; страница видеопамяти
+    int 0x10; выводим символ
+    jmp $
+    popa
+    ret
     
 section .data
     start_message db '$ ', 0
-    finish_message db 'press key to continue', 0
+    finish_message db 'press key to cont', 0
     input_message db '> ', 0    
     error_message db 'err ', 0
 
