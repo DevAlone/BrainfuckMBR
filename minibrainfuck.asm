@@ -30,15 +30,15 @@ start:
     .main:
         call clearScreen
         
-        push word 0
+        ;push word 0
+        mov dx, 0
         call setCursor
-        add sp, 2
+        ;add sp, 2
        
         
 ; выводим стартовое сообщение               
-        push word start_message
+        mov si, start_message
         call print
-        add sp, 2
               
        ; меняем сегменты данных
         mov ax, bf_mem_seg
@@ -143,9 +143,10 @@ start:
 ; интерпретируем
         call clearScreen
        
-        push word 0
+        ;push word 0
+        mov dx, 0
         call setCursor
-        add sp, 2
+        ;add sp, 2
         
         
         lea di, [bf_mem_offset+bf_data_pos]; массив 
@@ -208,14 +209,21 @@ start:
                 ; положили в стек старые значения
                 push word dx
                 ; перемещаем курсор в нижнюю строку экрана
-                push word 0x1800; 24 строка 0 столбец
+                ;push word 0x1800; 24 строка 0 столбец
+                mov dx, 0x1800
                 call setCursor
-                add sp, 2
+                ;add sp, 2
 
-                push word input_message
-                call print
-                add sp, 2                
-                
+                push ds; запоминаем сегмент
+                mov ax, 0; меняем на нулевой, где хранятся все сообщения
+                ;mov es, ax
+                mov ds, ax
+                    ;push word input_message
+                    mov si, input_message
+                    call print
+                    ;add sp, 2                
+                pop ds
+                        
                 mov ah, 0x00; читаем символ
                 int 0x16
                 ;cmp al, 0
@@ -227,8 +235,9 @@ start:
                 mov bh, VIDEO_PAGE; 
                 int 0x10; 
                 
+                pop dx
                 call setCursor; исплользуются те значения, что были занесены в стек
-                add sp, 2
+                ;add sp, 2
                 .c5_end:
                 popa
                 jmp .sw_end
@@ -266,20 +275,23 @@ start:
                 mov ds, ax
                 
                 ; перемещаем курсор в нижнюю строку экрана
-                push word 0x1800; 24 строка 0 столбец
+                ;push word 0x1800; 24 строка 0 столбец
+                mov dx, 0x1800
                 call setCursor
-                add sp, 2
+                ;add sp, 2
             pop bx
             cmp bx, 0
             jz .no_error
-            push word error_message
+            ;push word error_message
+            mov si, error_message
             call print
-            add sp, 2
+            ;add sp, 2
             .no_error:
             
-            push finish_message
+            ;push finish_message
+            mov si, finish_message
             call print
-            add sp, 2
+            ;add sp, 2
             
             ; ждём нажатия
             mov ah, 0x00
@@ -322,16 +334,10 @@ loops_handler:
     ;pop bp
     ret
     
-    
+; принимает адрес строки через si  
 print:
-    enter 0, 0
     pusha
-    push ds; запоминаем сегмент
-    mov ax, 0; меняем на нулевой, где хранятся все сообщения
-    ;mov es, ax
-    mov ds, ax
     
-    mov si, [bp+2+2]; первый аргумент
     cld
     mov ah, 0x0E; номер функции BIOS
     mov bh, VIDEO_PAGE; страница видеопамяти
@@ -345,46 +351,41 @@ print:
         jmp .puts_loop
     .exit_loop:
     
-    pop ds; восстанавливаем сегмент
-    ;pop ax
-    ;mov es, ax
-    
     popa
-    leave
     ret
 clearScreen:
     pusha
-    ;mov ah, 0x06; листать окно вверх
-    ;mov al, 0; очистить окно
+    ;ah = 0x06; листать окно вверх
+    ;al = 0; очистить окно
     mov ax, 0x0600; 
     ; левый верхний угол
-    ;mov cx, 0
     xor cx, cx
     ; правый нижний угол
-    ;mov dh, 25
-    ;mov dl, 80
+    ;dh = 25
+    ;dl = 80
     mov dx, 0x2580    
     mov bh, 00000010b; цвет
     int 0x10
     popa
     ret
 ; void setCursor(dword xy)
+; принимает координаты через dx
 setCursor:
-    enter 0, 0
+;    enter 0, 0
     
     pusha
     
     ; устанавливаем курсор в 0 0
         mov ah, 0x02
         mov bh, VIDEO_PAGE; страница видеопамяти
-        mov dx, [bp+2+2]; первый аргумент
+        ;mov dx, [bp+2+2]; первый аргумент
         ;dh line
         ;dl collumn
         int 0x10
         
     popa
     
-    leave
+;    leave
     ret
 ; просто функция для отладки
 debug:
