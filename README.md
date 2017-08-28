@@ -5,7 +5,7 @@ Execute  `./just_do_it` to start interpreter or `./just_debug_it bf_code` to deb
 
 To record program on a flash drive, use the following command:
 
-`nasm -f bin minibrainfuck.asm -o minibrainfuck && dd if=minibrainfuck of=disk.img bs=510 count=1 conv=sync && echo -en '\x55\xaa' >> disk.img && sudo dd if=disk.img of=/dev/you_flash_drive # (for me it is sdb`
+`nasm -f bin minibrainfuck.asm -o minibrainfuck && dd if=minibrainfuck of=disk.img bs=510 count=1 conv=sync && echo -en '\x55\xaa' >> disk.img && sudo dd if=disk.img of=/dev/you_flash_drive # (for me it is sdb)`
 
 To run programs from file, use the following command:
 
