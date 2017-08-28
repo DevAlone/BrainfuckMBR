@@ -9,11 +9,15 @@ To record program on a flash drive, use the following command:
 
 To run programs from file, use the following command:
 
-`./just_debug_it \`cat path_to_bf_program\``
+```
+./just_debug_it \`cat path_to_bf_program\`
+```
 
 For example:
 
-`./just_debug_it \`cat programs/helloworld\``
+```
+./just_debug_it \`cat programs/helloworld\`
+```
 
 -----------------------------------------------------------------------------------------------------------------------
 
@@ -27,8 +31,12 @@ For example:
 
 Для запуска программ из файла, воспользуйтесь следующей командой:
 
-`./just_debug_it \`cat путь_к_программе\``
+```
+./just_debug_it \`cat путь_к_программе\`
+```
 
 Например:
 
-`./just_debug_it \`cat programs/helloworld\``
+```
+./just_debug_it \`cat programs/helloworld\`
+```
