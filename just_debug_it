@@ -1,2 +1,2 @@
-#!/bin/bash
+#!/usr/bin/env bash
 nasm -f bin -dDEBUG minibrainfuck.asm -o minibrainfuck && dd if=minibrainfuck of=disk.img bs=510 count=1 conv=sync && echo -en '\x55\xaa' >> disk.img && echo $1 | qemu-system-i386 disk.img -serial stdio 
